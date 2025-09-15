@@ -146,20 +146,19 @@ effectiveStdenv.mkDerivation (finalAttrs: {
   # see https://github.com/ggml-org/llama.cpp/pull/6118 for discussion
   __noChroot = effectiveStdenv.isDarwin && useMetalKit && precompileMetalShaders;
 
-  nativeBuildInputs =
-    [
-      cmake
-      ninja
-      pkg-config
-      git
-    ]
-    ++ optionals useCuda [
-      cudaPackages.cuda_nvcc
+  nativeBuildInputs = [
+    cmake
+    ninja
+    pkg-config
+    git
+  ]
+  ++ optionals useCuda [
+    cudaPackages.cuda_nvcc
 
-      autoAddDriverRunpath
-    ]
-    ++ optionals (effectiveStdenv.hostPlatform.isGnu && enableStatic) [ glibc.static ]
-    ++ optionals (effectiveStdenv.isDarwin && useMetalKit && precompileMetalShaders) [ xcrunHost ];
+    autoAddDriverRunpath
+  ]
+  ++ optionals (effectiveStdenv.hostPlatform.isGnu && enableStatic) [ glibc.static ]
+  ++ optionals (effectiveStdenv.isDarwin && useMetalKit && precompileMetalShaders) [ xcrunHost ];
 
   buildInputs =
     optionals effectiveStdenv.isDarwin darwinBuildInputs
@@ -171,50 +170,53 @@ effectiveStdenv.mkDerivation (finalAttrs: {
     ++ optionals useVulkan vulkanBuildInputs
     ++ optionals enableCurl [ curl ];
 
-  cmakeFlags =
-    [
-      (cmakeBool "LLAMA_BUILD_SERVER" true)
-      (cmakeBool "BUILD_SHARED_LIBS" (!enableStatic))
-      (cmakeBool "CMAKE_SKIP_BUILD_RPATH" true)
-      (cmakeBool "LLAMA_CURL" enableCurl)
-      (cmakeBool "GGML_NATIVE" false)
-      (cmakeBool "GGML_BLAS" useBlas)
-      (cmakeBool "GGML_CUDA" useCuda)
-      (cmakeBool "GGML_HIP" useRocm)
-      (cmakeBool "GGML_METAL" useMetalKit)
-      (cmakeBool "GGML_VULKAN" useVulkan)
-      (cmakeBool "GGML_STATIC" enableStatic)
-    ]
-    ++ optionals useCuda [
-      (
-        with cudaPackages.flags;
-        cmakeFeature "CMAKE_CUDA_ARCHITECTURES" (
-          builtins.concatStringsSep ";" (map dropDot cudaCapabilities)
-        )
+  cmakeFlags = [
+    (cmakeBool "LLAMA_BUILD_SERVER" true)
+    (cmakeBool "BUILD_SHARED_LIBS" (!enableStatic))
+    (cmakeBool "CMAKE_SKIP_BUILD_RPATH" true)
+    (cmakeBool "LLAMA_CURL" enableCurl)
+    (cmakeBool "GGML_NATIVE" true)
+    (cmakeBool "GGML_BLAS" useBlas)
+    (cmakeBool "GGML_CUDA" useCuda)
+    (cmakeBool "GGML_HIP" useRocm)
+    (cmakeBool "GGML_METAL" useMetalKit)
+    (cmakeBool "GGML_VULKAN" useVulkan)
+    (cmakeBool "GGML_STATIC" enableStatic)
+  ]
+  ++ optionals useCuda [
+    (
+      with cudaPackages.flags;
+      cmakeFeature "CMAKE_CUDA_ARCHITECTURES" (
+        builtins.concatStringsSep ";" (map dropDot cudaCapabilities)
       )
-      (cmakeBool "GGML_CUDA_FA_ALL_QUANTS" buildAllCudaFaQuants)
-      (cmakeBool "GGML_CUDA_ENABLE_UNIFIED_MEMORY" enableUma)
-    ]
-    ++ optionals useRocm [
-      (cmakeFeature "CMAKE_HIP_COMPILER" "${rocmPackages.llvm.clang}/bin/clang")
-      (cmakeFeature "AMDGPU_TARGETS" rocmGpuTargets)
-      (cmakeBool "GGML_CUDA_FA_ALL_QUANTS" buildAllCudaFaQuants)
-      (cmakeBool "GGML_CUDA_ENABLE_UNIFIED_MEMORY" enableUma)
-    ]
-    ++ optionals rocmUseWmma [
-      (cmakeBool "GGML_HIP_ROCWMMA_FATTN" rocmUseWmma)
-      (cmakeFeature "GGML_HIP_ROCWMMA_PATH" "${rocmPackages.rocwmma}")
-    ]
-    ++ optionals useMetalKit [
-      (lib.cmakeFeature "CMAKE_C_FLAGS" "-D__ARM_FEATURE_DOTPROD=1")
-      (cmakeBool "GGML_METAL_EMBED_LIBRARY" (!precompileMetalShaders))
-    ];
+    )
+    (cmakeBool "GGML_CUDA_FA_ALL_QUANTS" buildAllCudaFaQuants)
+    (cmakeBool "GGML_CUDA_ENABLE_UNIFIED_MEMORY" enableUma)
+  ]
+  ++ optionals useRocm [
+    (cmakeFeature "CMAKE_HIP_COMPILER" "${rocmPackages.llvm.clang}/bin/clang")
+    (cmakeFeature "AMDGPU_TARGETS" rocmGpuTargets)
+    (cmakeBool "GGML_CUDA_FA_ALL_QUANTS" buildAllCudaFaQuants)
+    (cmakeBool "GGML_CUDA_ENABLE_UNIFIED_MEMORY" enableUma)
+  ]
+  ++ optionals rocmUseWmma [
+    (cmakeBool "GGML_HIP_ROCWMMA_FATTN" rocmUseWmma)
+    (cmakeFeature "GGML_HIP_ROCWMMA_PATH" "${rocmPackages.rocwmma}")
+  ]
+  ++ optionals useMetalKit [
+    (lib.cmakeFeature "CMAKE_C_FLAGS" "-D__ARM_FEATURE_DOTPROD=1")
+    (cmakeBool "GGML_METAL_EMBED_LIBRARY" (!precompileMetalShaders))
+  ];
 
   # Environment variables needed for ROCm
-  env = optionalAttrs useRocm {
-    ROCM_PATH = "${rocmPackages.clr}";
-    HIP_DEVICE_LIB_PATH = "${rocmPackages.rocm-device-libs}/amdgcn/bitcode";
-  };
+  env =
+    optionalAttrs useRocm {
+      ROCM_PATH = "${rocmPackages.clr}";
+      HIP_DEVICE_LIB_PATH = "${rocmPackages.rocm-device-libs}/amdgcn/bitcode";
+    }
+    // {
+      NIX_ENFORCE_NO_NATIVE = 0;
+    };
 
   # TODO(SomeoneSerge): It's better to add proper install targets at the CMake level,
   # if they haven't been added yet.
