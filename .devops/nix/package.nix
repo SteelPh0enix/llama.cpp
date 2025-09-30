@@ -16,6 +16,12 @@
   rocmPackages,
   vulkan-headers,
   vulkan-loader,
+  vulkan-tools,
+  vulkan-volk,
+  vulkan-extension-layer,
+  vulkan-utility-libraries,
+  vk-bootstrap,
+  kompute,
   curl,
   shaderc,
   useBlas ?
@@ -109,6 +115,12 @@ let
     vulkan-headers
     vulkan-loader
     shaderc
+    vulkan-tools
+    vulkan-volk
+    vulkan-extension-layer
+    vulkan-utility-libraries
+    vk-bootstrap
+    kompute
   ];
 in
 
